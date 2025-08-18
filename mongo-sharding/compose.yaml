@@ -1,0 +1,75 @@
+name: mongo-sharding
+services:
+  # Конфигурационный сервер
+  configSrv:
+    image: dh-mirror.gitverse.ru/mongo:latest
+    container_name: configSrv
+    command: ["--configsvr","--replSet","config_server","--bind_ip_all","--port","27017"]
+    ports: ["27017:27017"]
+    volumes: ["config-data:/data/db"]
+    healthcheck:
+      test: ["CMD","mongosh","--quiet","--eval","db.adminCommand('ping')"]
+      interval: 5s
+      start_period: 10s
+
+  # Шард 1 (реплика-сет из 1 узла)
+  shard1:
+    image: dh-mirror.gitverse.ru/mongo:latest
+    container_name: shard1
+    command: ["--shardsvr","--replSet","shard1","--bind_ip_all","--port","27018"]
+    ports: ["27018:27018"]
+    volumes: ["shard1-data:/data/db"]
+    healthcheck:
+      test: ["CMD","mongosh","--quiet","--port","27018","--eval","db.adminCommand('ping')"]
+      interval: 5s
+      start_period: 10s
+
+  # Шард 2 (реплика-сет из 1 узла)
+  shard2:
+    image: dh-mirror.gitverse.ru/mongo:latest
+    container_name: shard2
+    command: ["--shardsvr","--replSet","shard2","--bind_ip_all","--port","27019"]
+    ports: ["27019:27019"]
+    volumes: ["shard2-data:/data/db"]
+    healthcheck:
+      test: ["CMD","mongosh","--quiet","--port","27019","--eval","db.adminCommand('ping')"]
+      interval: 5s
+      start_period: 10s
+
+  # Роутер mongos
+  mongos_router:
+    image: dh-mirror.gitverse.ru/mongo:latest
+    container_name: mongos_router
+    command: ["mongos","--configdb","config_server/configSrv:27017","--bind_ip_all","--port","27020"]
+    ports: ["27020:27020"]
+    depends_on:
+      configSrv:
+        condition: service_healthy
+      shard1:
+        condition: service_started
+      shard2:
+        condition: service_started
+    healthcheck:
+      test: ["CMD","mongosh","--quiet","--port","27020","--eval","db.adminCommand('ping')"]
+      interval: 5s
+      start_period: 10s
+
+  # Приложение pymongo-api, URL на роутер
+  pymongo_api:
+    container_name: pymongo_api
+    build:
+      context: api_app
+      dockerfile: Dockerfile
+    depends_on:
+      mongos_router:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      MONGODB_URL: "mongodb://mongos_router:27020"
+      MONGODB_DATABASE_NAME: "somedb"
+
+volumes:
+  config-data:
+  shard1-data:
+  shard2-data:
