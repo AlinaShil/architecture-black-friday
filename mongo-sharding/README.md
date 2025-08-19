@@ -60,18 +60,13 @@ EOF
 
 ---
 
-## 4. (Опционально) Проверить вставку и распределение данных
+## 4. Проверить вставку и распределение данных
 
 ```bash
 # вставим документы через роутер
-docker compose exec -T mongos_router mongosh --port 27020 --quiet <<'EOF'
+docker compose exec -T mongos_router mongosh --port 27020 --quiet <<EOF
 use somedb
-db.helloDoc.insertMany([
-  { name: "Alice", age: 30 },
-  { name: "Bob", age: 35 },
-  { name: "Carol", age: 28 }
-])
-db.helloDoc.countDocuments()
+for(var i = 0; i < 1000; i++) db.helloDoc.insertOne({age:i, name:"ly"+i})
 EOF
 
 # проверить содержимое шарда 1
@@ -82,6 +77,12 @@ EOF
 
 # проверить содержимое шарда 2
 docker compose exec -T shard2 mongosh --port 27019 --quiet <<'EOF'
+use somedb
+db.helloDoc.countDocuments()
+EOF
+
+# проверить общее количество файлов через роутер
+docker compose exec -T mongos_router mongosh --port 27019 --quiet <<'EOF'
 use somedb
 db.helloDoc.countDocuments()
 EOF
