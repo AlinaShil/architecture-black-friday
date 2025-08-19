@@ -1,0 +1,87 @@
+name: mongo-sharding-repl
+services:
+  # Конфигурационный сервер (1 узел)
+  configSrv:
+    image: mongo:6
+    container_name: configSrv
+    command: ["--configsvr","--replSet","config_server","--bind_ip_all","--port","27017"]
+    ports: ["27017:27017"]
+    volumes: ["config-data:/data/db"]
+
+  # ===== Shard 1 — Replica Set из 3 узлов =====
+  shard1a:
+    image: mongo:6
+    container_name: shard1a
+    command: ["--shardsvr","--replSet","shard1","--bind_ip_all","--port","27018"]
+    volumes: ["shard1a-data:/data/db"]
+
+  shard1b:
+    image: mongo:6
+    container_name: shard1b
+    command: ["--shardsvr","--replSet","shard1","--bind_ip_all","--port","27018"]
+    volumes: ["shard1b-data:/data/db"]
+
+  shard1c:
+    image: mongo:6
+    container_name: shard1c
+    command: ["--shardsvr","--replSet","shard1","--bind_ip_all","--port","27018"]
+    volumes: ["shard1c-data:/data/db"]
+
+  # ===== Shard 2 — Replica Set из 3 узлов =====
+  shard2a:
+    image: mongo:6
+    container_name: shard2a
+    command: ["--shardsvr","--replSet","shard2","--bind_ip_all","--port","27019"]
+    volumes: ["shard2a-data:/data/db"]
+
+  shard2b:
+    image: mongo:6
+    container_name: shard2b
+    command: ["--shardsvr","--replSet","shard2","--bind_ip_all","--port","27019"]
+    volumes: ["shard2b-data:/data/db"]
+
+  shard2c:
+    image: mongo:6
+    container_name: shard2c
+    command: ["--shardsvr","--replSet","shard2","--bind_ip_all","--port","27019"]
+    volumes: ["shard2c-data:/data/db"]
+
+  # Роутер
+  mongos_router:
+    image: mongo:6
+    container_name: mongos_router
+    command: ["mongos","--configdb","config_server/configSrv:27017","--bind_ip_all","--port","27020"]
+    ports: ["27020:27020"]
+    depends_on:
+      - configSrv
+      - shard1a
+      - shard1b
+      - shard1c
+      - shard2a
+      - shard2b
+      - shard2c
+
+  # Приложение (если есть рядом папка api_app с Dockerfile)
+  pymongo_api:
+    container_name: pymongo_api
+    build:
+      context: api_app
+      dockerfile: Dockerfile
+    depends_on:
+      - mongos_router
+    ports:
+      - "8080:8080"
+    environment:
+      MONGODB_URL: "mongodb://mongos_router:27020"
+      MONGODB_DATABASE_NAME: "somedb"
+
+volumes:
+  config-data:
+
+  shard1a-data:
+  shard1b-data:
+  shard1c-data:
+
+  shard2a-data:
+  shard2b-data:
+  shard2c-data:
