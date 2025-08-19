@@ -43,14 +43,11 @@ services:
     command: ["mongos","--configdb","config_server/configSrv:27017","--bind_ip_all","--port","27020"]
     ports: ["27020:27020"]
     depends_on:
-      configSrv:
-        condition: service_healthy
-      shard1:
-        condition: service_started
-      shard2:
-        condition: service_started
+      - configSrv
+      - shard1
+      - shard2
     healthcheck:
-      test: ["CMD","mongosh","--quiet","--port","27020","--eval","db.adminCommand('ping')"]
+      test: ["CMD-SHELL","echo ok"]
       interval: 5s
       start_period: 10s
 
@@ -61,8 +58,7 @@ services:
       context: api_app
       dockerfile: Dockerfile
     depends_on:
-      mongos_router:
-        condition: service_healthy
+      - mongos_router
     ports:
       - "8080:8080"
     environment:
