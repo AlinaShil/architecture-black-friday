@@ -71,17 +71,11 @@ sh.shardCollection("somedb.helloDoc", { _id: "hashed" })
 EOF
 ```
 
-## 5) (Опционально) Наполнить тестовыми данными (≥1000)
+## 5) Наполнить тестовыми данными (≥1000)
 ```bash
-docker compose exec -T mongos_router mongosh --port 27020 --quiet <<'EOF'
+docker compose exec -T mongos_router mongosh --port 27020 --quiet <<EOF
 use somedb
-const N = 1000, B = 200, buf = [];
-for (let i = 0; i < N; i++) {
-  buf.push({ name: "user_"+i, n: i, createdAt: new Date() });
-  if (buf.length === B) { db.helloDoc.insertMany(buf); buf.length = 0; }
-}
-if (buf.length) db.helloDoc.insertMany(buf);
-print("total:", db.helloDoc.countDocuments());
+for(var i = 0; i < 1000; i++) db.helloDoc.insertOne({age:i, name:"ly"+i})
 EOF
 ```
 
@@ -100,8 +94,3 @@ docker compose exec -T shard2a mongosh --quiet --port 27019 --eval "rs.status().
 ```
 
 ---
-
-### Примечания
-- Все члены одного шарда слушают **один и тот же порт** (27018 для shard1, 27019 для shard2). Это нормально: внутри сети Compose важны **имена сервисов**, а не порты хоста.
-- Если `mongos_router` стартовал раньше, чем `config_server` получил PRIMARY, просто выполни шаги инициализации — `mongos` станет работоспособным автоматически.
-- При желании можно добавить healthchecks/задержки старта, но для учебной среды так проще.
